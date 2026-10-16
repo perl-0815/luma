@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; object-src 'none'">
+  <title>LUMA</title>
+  <link rel="icon" href="mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script src="model.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body data-status="idle">
+  <div class="frame">
+    <header class="masthead">
+      <div class="brand"><img src="mark.svg" width="34" height="34" alt=""><h1>LUMA</h1></div>
+      <div class="window-tools">
+        <button id="pin" type="button" aria-label="最前面に固定" aria-pressed="false" title="最前面に固定">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 3 7 2-2 4 1 4-3-1-4 3-1-5 4-3Z"/><path d="m8 13-3 4"/></svg><span>固定</span>
+        </button>
+        <button id="compact" type="button" aria-label="小さく表示" aria-pressed="false" title="小さく表示">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M11 9h6m-6 0v7"/></svg><span id="compact-label">縮小</span>
+        </button>
+      </div>
+    </header>
+    <main>
+      <p id="connection-error" class="connection-error" role="alert" hidden></p>
+      <section aria-label="作業一覧" class="work-section">
+        <div class="section-heading"><h2>作業</h2><span id="work-summary" class="secondary"></span></div>
+        <div id="sessions" class="sessions" role="group" aria-label="作業を選択"></div>
+        <p id="empty" class="empty" hidden>表示する作業はありません</p>
+        <details id="history" class="history" hidden>
+          <summary id="history-label">完了した作業</summary>
+          <div id="history-sessions" class="sessions" role="group" aria-label="完了した作業を選択"></div>
+        </details>
+      </section>
+      <section id="agents-section" class="agents-section" aria-labelledby="agents-heading" hidden>
+        <div class="section-heading"><h2 id="agents-heading">エージェント</h2><span id="agent-summary" class="secondary"></span></div>
+        <div id="agents" class="agents" tabindex="0" role="region" aria-label="担当エージェントの状況"></div>
+      </section>
+      <details id="activity" class="activity" hidden>
+        <summary>活動履歴</summary>
+        <ol id="events" class="events" tabindex="0" aria-label="選択した作業の活動履歴"></ol>
+      </details>
+    </main>
+    <p id="announcement" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></p>
+  </div>
+</body>
+</html>
