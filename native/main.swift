@@ -9,7 +9,7 @@ final class WorkHub: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKSc
     private var previousData: Data?
     private var lastError: String?
     private var compact = false
-    private var expandedSize = NSSize(width: 900, height: 640)
+    private var expandedSize = NSSize(width: 1180, height: 720)
     private var requestedStateURL: URL?
     private let webRoot = Bundle.main.resourceURL!.appendingPathComponent("web")
     private var stateURL: URL {

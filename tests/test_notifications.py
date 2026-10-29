@@ -83,7 +83,7 @@ class NotificationTests(unittest.TestCase):
         after = session("error", tasks=[{"id": "build", "title": "実装", "status": "error", "message": "Build failed"}])
         notices = notifications.transition_notices(session(), after, self.config_value())
         self.assertEqual(len(notices), 1)
-        self.assertIn("対象: 実装", notices[0]["payload"]["content"])
+        self.assertIn("- **対象**: 実装", notices[0]["payload"]["content"])
         repeated = copy.deepcopy(after)
         repeated["agents"].append({"id": "review", "name": "Review", "status": "error", "message": "Another issue", "task": "Review"})
         notices = notifications.transition_notices(after, repeated, self.config_value())
@@ -97,7 +97,46 @@ class NotificationTests(unittest.TestCase):
         self.assertEqual(payload["allowed_mentions"], {"parse": []})
         self.assertNotIn("/Users/test", payload["content"])
         self.assertNotIn("fake_test_token", payload["content"])
-        self.assertIn("プロジェクト: project", payload["content"])
+        self.assertIn("- **プロジェクト**: project", payload["content"])
+
+    def test_notifications_use_large_status_headings_and_readable_fields(self):
+        expected = {"done": "# 🟢 作業完了", "error": "# 🔴 問題あり", "waiting": "# 🟡 操作待ち"}
+        for status, heading in expected.items():
+            with self.subTest(status=status):
+                after = session(status)
+                content = notifications.transition_notices(session(), after, self.config_value())[0]["payload"]["content"]
+                self.assertTrue(content.startswith(heading + "\n**作業 @everyone**\n\n"))
+                self.assertIn("- **プロジェクト**: project\n", content)
+                self.assertIn("- **報告**: 現在の報告", content)
+                self.assertNotIn("- **対象**:", content)
+
+    def test_user_markdown_is_escaped_and_multiline_reports_stay_inside_field(self):
+        after = session("error", tasks=[{"id": "build", "title": "build_[task]", "status": "error", "message": "*別の報告*"}])
+        after["title"] = "**タイトル**\n# 別見出し `code`"
+        after["project"] = "/Users/test/my_project"
+        after["message"] = "first_line\r\n# heading\n- list\n> quote\n[link](url)\n```code```\n||spoiler||"
+        content = notifications.transition_notices(session(), after, self.config_value())[0]["payload"]["content"]
+        self.assertIn("**\\*\\*タイトル\\*\\* \\# 別見出し \\`code\\`**", content)
+        self.assertIn("- **プロジェクト**: my\\_project", content)
+        self.assertIn("- **対象**: build\\_\\[task\\]", content)
+        self.assertIn("- **報告**: first\\_line\n  \\# heading\n  \\- list\n  \\> quote", content)
+        self.assertIn("\\[link\\]\\(url\\)", content)
+        self.assertIn("\\`\\`\\`code\\`\\`\\`", content)
+        self.assertIn("\\|\\|spoiler\\|\\|", content)
+        self.assertIn("\n  \\*別の報告\\*", content)
+        self.assertEqual(sum(line.startswith("# ") for line in content.splitlines()), 1)
+
+    def test_long_escaped_unicode_payload_fits_without_splitting_escape_tokens(self):
+        after = session("error", tasks=[{"id": "build", "title": "*\\_😀" * 300, "status": "error", "message": "_[😀]\\\n" * 1000}])
+        after["title"] = "*\\_😀" * 300
+        after["project"] = "/Users/test/" + "*\\_😀" * 300
+        after["message"] = "_[😀]\\\n" * 1000
+        content = notifications.transition_notices(session(), after, self.config_value())[0]["payload"]["content"]
+        self.assertLessEqual(len(content.encode("utf-16-le")) // 2, 1900)
+        self.assertTrue(content.endswith("…"))
+        self.assertNotIn("\\…", content.replace("\\\\", ""))
+        content.encode("utf-8")
+        self.assertEqual(sum(line.startswith("# ") for line in content.splitlines()), 1)
 
     def test_queue_persists_deduplicates_and_worker_confirms_delivery(self):
         before, after = session(), session("done")

@@ -2,7 +2,9 @@
 
 Codexの作業と担当エージェントをひと目で確認する、ローカル専用のmacOSアプリです。
 
-作業をタブで切り替え、左のエクスプローラーでタスクの分岐と進み具合を確認できます。タスクを選ぶと報告や担当者、先に必要な工程を表示します。タスク計画のない従来の作業も、そのまま読み込めます。
+作業をタブで切り替え、中央のノード図でタスクの分岐と進み具合を確認できます。ノードや左のエクスプローラーで工程を選ぶと、右のインスペクターに報告・担当者・先に必要な工程を表示します。実線の矢印は前提工程、破線は親子関係です。状態更新でノードの配置は変わりません。タスク計画のない従来の作業は、作業全体のノードを表示します。
+
+黒鉛色の面、細い罫線、角の切り欠き、控えめな黄のアクセントで工業的な質感に整えています。小窓では `EXPLORER` と `INSPECTOR` を開閉でき、ノード図は通常のスクロールで確認できます。ノード間は矢印キーでも移動できます。
 
 ヘッダーの大きな長方形は、選択中のタブに限らず全作業の状態を集計します。赤は問題あり、黄は操作待ち、緑は作業中・完了・待機です。状態名も表示するため、緑が完了を意味するわけではありません。タスクやエージェントの色は以下の通りです。
 
@@ -22,7 +24,7 @@ Codexの作業と担当エージェントをひと目で確認する、ローカ
 bash scripts/run.sh
 ```
 
-ウィンドウは移動・拡大縮小できます。「固定」で最前面へ固定、「縮小」で小さな表示に切り替えます。アプリを閉じても作業の記録は残ります。
+ウィンドウは移動・拡大縮小できます。`PIN` で最前面へ固定、`COMPACT` で小さな表示に切り替えます。アプリを閉じても作業の記録は残ります。
 
 macOS 12以降、XcodeまたはCommand Line Tools、Python 3.9以降が必要です。初回は標準のSwiftコンパイラでビルドします。AppKit・WebKit・Python標準ライブラリを使用し、Webサーバーは不要です。画面はローカルの状態ファイルだけを読み、Discord通知を有効にした場合のみCLIがDiscordへ送信します。ロゴはSVGで、同じ形からDock用アイコンも生成します。
 
@@ -74,7 +76,7 @@ python3 scripts/indicator.py update --session SESSION --status done --done-task 
 
 設定ファイルは本人だけが読める権限（`chmod 600`）にします。設定がない場合や `enabled` が `false` の場合は送信しません。
 
-問題・操作待ちへ変わったときと、作業タブ全体が完了したときに送信します。細かな工程の完了は通知しません。同じ問題状態の報告を繰り返しても通知せず、復旧後に再発すれば再び通知します。通知には作業名、プロジェクト名、対象、報告を含み、メンションは無効です。
+問題・操作待ちへ変わったときと、作業タブ全体が完了したときに送信します。細かな工程の完了は通知しません。同じ問題状態の報告を繰り返しても通知せず、復旧後に再発すれば再び通知します。通知は状態に応じた丸の絵文字（完了は緑、問題は赤、操作待ちは黄）とMarkdownの大きな見出し、太字の作業名、プロジェクト・対象・報告の箇条書きで表示します。メンションは無効です。
 
 送信は別プロセスで行い、アプリを閉じてもCLIから通知できます。通信失敗やレート制限は最大5回・最長6時間の範囲で自動再試行し、送れなかった通知は状態ファイルと同じ場所の `state.json.notifications.json` に残します。設定や接続を直した後に再試行する場合：
 
@@ -82,13 +84,13 @@ python3 scripts/indicator.py update --session SESSION --status done --done-task 
 python3 scripts/notifications.py --state .runtime/state.json --retry
 ```
 
-Discordの仕様は [Webhook Resource](https://github.com/discord/discord-api-docs/blob/main/developers/resources/webhook.mdx) と [Rate Limits](https://github.com/discord/discord-api-docs/blob/main/developers/topics/rate-limits.mdx) に従います。
+Discordの仕様は [Webhook Resource](https://github.com/discord/discord-api-docs/blob/main/developers/resources/webhook.mdx)、[Rate Limits](https://github.com/discord/discord-api-docs/blob/main/developers/topics/rate-limits.mdx)、[Markdown Text 101](https://support.discord.com/hc/en-us/articles/210298617-Markdown-Text-101-Chat-Formatting-Bold-Italic-Underline) に従います。
 
 ## 検証
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py'
-node --test tests/model.test.js
+node --test tests/*.test.js
 bash scripts/build.sh
 ```
 

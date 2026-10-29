@@ -35,6 +35,8 @@ WORKER_BUDGET = 6 * 60 * 60
 MAX_ATTEMPTS = 5
 MAX_PENDING = 500
 STATUS_LABELS = {"error": "問題あり", "waiting": "操作待ち", "done": "作業完了"}
+STATUS_ICONS = {"error": "🔴", "waiting": "🟡", "done": "🟢"}
+MAX_CONTENT_UNITS = 1900
 
 
 def config_path() -> Path:
@@ -117,9 +119,56 @@ def public_text(text: str, limit: int = 500) -> str:
     text = re.sub(r"https://(?:canary\.|ptb\.)?discord(?:app)?\.com/api/[^\s]+", "[Webhook]", text)
     text = re.sub(r"(?<!\w)(?:/[A-Za-z0-9_.~\-]+){2,}", "[ローカルパス]", text)
     text = re.sub(r"[A-Za-z]:\\[^\s]+", "[ローカルパス]", text)
-    # Labels are data; suppress Markdown formatting that could obscure them.
-    text = text.replace("`", "'")
     return text[:limit]
+
+
+def text_units(text: str) -> int:
+    """Count UTF-16 units conservatively for supplementary characters."""
+    return sum(2 if ord(character) > 0xFFFF else 1 for character in text)
+
+
+def markdown_text(text: str, limit: int, *, multiline: bool = False) -> str:
+    """Render user text literally without cutting an escape or Unicode scalar.
+
+    Labels stay on one line. Reports preserve line breaks as continuations of
+    their bullet field, so a copied heading/list cannot change the layout.
+    """
+    text = public_text(text, len(text)).replace("\r\n", "\n").replace("\r", "\n")
+    if not multiline:
+        text = " ".join(text.split())
+    tokens = []
+    used = 0
+    for character in text:
+        if character == "\n":
+            token = "\n  "
+        elif character in "\\`*_{}[]()<>#+-.!|~":
+            token = "\\" + character
+        else:
+            token = character
+        units = text_units(token)
+        # Reserve one unit for an ellipsis when more user text is omitted.
+        if used + units > max(0, limit - 1):
+            return "".join(tokens) + ("…" if limit else "")
+        tokens.append(token)
+        used += units
+    return "".join(tokens)
+
+
+def notice_content(session: dict, status: str, changed: list[tuple]) -> str:
+    title = markdown_text(session["title"], 240)
+    lines = [f"# {STATUS_ICONS[status]} {STATUS_LABELS[status]}", f"**{title}**", ""]
+    project = session.get("project", "").replace("\\", "/").rstrip("/").split("/")[-1]
+    if project:
+        lines.append("- **プロジェクト**: " + markdown_text(project, 160))
+    names = [name for source_id, name, message in changed if source_id != "session"]
+    if names:
+        lines.append("- **対象**: " + markdown_text("、".join(names), 300))
+    messages = list(dict.fromkeys(message for source_id, name, message in changed if message))
+    if messages:
+        prefix = "- **報告**: "
+        remaining = MAX_CONTENT_UNITS - text_units("\n".join(lines) + "\n" + prefix)
+        lines.append(prefix + markdown_text("\n".join(messages), remaining, multiline=True))
+    return "\n".join(lines).rstrip()
 
 
 def transition_notices(before: dict | None, after: dict, config: dict) -> list[dict]:
@@ -140,20 +189,9 @@ def transition_notices(before: dict | None, after: dict, config: dict) -> list[d
     # A session and its current task often change together. Report that incident
     # once, retaining all newly affected source names in the same message.
     for status, changed in groups.items():
-        project = after.get("project", "").replace("\\", "/").rstrip("/").split("/")[-1]
-        label = STATUS_LABELS[status]
-        lines = ["LUMA | " + label, public_text(after["title"], 240)]
-        if project:
-            lines.append("プロジェクト: " + public_text(project, 160))
-        names = [name for source_id, name, message in changed if source_id != "session"]
-        if names:
-            lines.append("対象: " + public_text("、".join(names), 300))
-        messages = list(dict.fromkeys(message for source_id, name, message in changed if message))
-        if messages:
-            lines.append(public_text("\n".join(messages), 700))
         source_ids = ",".join(source_id for source_id, name, message in changed)
         notice_id = hashlib.sha256((after["id"] + ":" + event_id + ":" + source_ids + ":" + status).encode()).hexdigest()
-        result.append({"id": notice_id, "payload": {"content": "\n".join(lines)[:1900],
+        result.append({"id": notice_id, "payload": {"content": notice_content(after, status, changed),
                        "allowed_mentions": {"parse": []}}, "attempts": 0, "nextAttemptAt": 0})
     return result
 

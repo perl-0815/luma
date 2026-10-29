@@ -8,6 +8,7 @@
   <link rel="icon" href="mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
   <script src="model.js" defer></script>
+  <script src="graph.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -17,31 +18,42 @@
         <div class="brand"><img src="mark.svg" width="27" height="27" alt=""><h1>LUMA</h1></div>
         <div class="window-tools">
           <button id="pin" type="button" aria-label="最前面に固定" aria-pressed="false" title="最前面に固定">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 3 7 2-2 4 1 4-3-1-4 3-1-5 4-3Z"/><path d="m8 13-3 4"/></svg><span>固定</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 3 7 2-2 4 1 4-3-1-4 3-1-5 4-3Z"/><path d="m8 13-3 4"/></svg><span>PIN</span>
           </button>
           <button id="compact" type="button" aria-label="小さく表示" aria-pressed="false" title="小さく表示">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M11 9h6m-6 0v7"/></svg><span id="compact-label">縮小</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M11 9h6m-6 0v7"/></svg><span id="compact-label">COMPACT</span>
           </button>
         </div>
       </div>
       <div id="global-indicator" class="global-indicator" data-color="green" role="status" aria-live="polite" aria-atomic="true">
-        <div class="global-primary"><span class="global-caption">全体</span><strong id="global-label">待機中</strong></div>
+        <div class="global-primary"><span class="global-caption">STATUS</span><strong id="global-label">待機中</strong></div>
         <span id="global-detail">作業の開始を待っています</span>
       </div>
     </header>
     <div id="sessions" class="session-tabs" role="tablist" aria-label="作業"></div>
     <p id="connection-error" class="connection-error" role="alert" hidden></p>
-    <main id="workspace" class="workspace" role="tabpanel" tabindex="0">
+    <main id="workspace" class="workspace" role="tabpanel">
       <aside id="explorer" class="explorer" aria-label="タスクエクスプローラー">
-        <div class="explorer-heading"><h2>タスク</h2><span id="task-count" class="secondary"></span></div>
-        <button id="explorer-toggle" class="explorer-toggle" type="button" aria-expanded="false" aria-controls="task-tree-container"><span>タスク</span><span id="compact-task-count"></span><span class="chevron" aria-hidden="true">⌄</span></button>
+        <div class="panel-heading explorer-heading"><h2>EXPLORER</h2><span id="task-count" class="secondary"></span></div>
         <div id="task-tree-container" class="task-tree-container">
-          <button id="overview" class="overview task-button" type="button" data-focus-key="overview" aria-pressed="true"><span class="branch-node" aria-hidden="true"></span><span class="task-name">作業全体</span></button>
+          <button id="overview" class="overview task-button" type="button" data-focus-key="overview" aria-label="作業全体を選択" aria-pressed="true"><span class="branch-node" aria-hidden="true"></span><span class="task-name">OVERVIEW</span></button>
           <ul id="task-tree" class="task-tree" aria-label="工程と進捗"></ul>
           <p id="no-tasks" class="no-tasks">タスク計画はまだ登録されていません</p>
         </div>
       </aside>
+      <section id="graph-panel" class="graph-panel" aria-label="タスクのノード図">
+        <div class="panel-heading graph-toolbar">
+          <div class="graph-actions"><button id="explorer-toggle" class="panel-toggle" type="button" aria-label="エクスプローラーを表示" aria-expanded="false" aria-controls="explorer">EXPLORER</button><h2>NODE GRAPH</h2></div>
+          <div class="graph-actions"><button id="graph-home" class="graph-home" type="button" aria-label="ノード図を先頭へ戻す">RESET VIEW</button><button id="inspector-toggle" class="panel-toggle" type="button" aria-label="インスペクターを表示" aria-expanded="false" aria-controls="detail">INSPECTOR</button></div>
+        </div>
+        <div id="graph-viewport" class="graph-viewport" tabindex="0" role="region" aria-label="タスクノード。スクロールして全体を確認できます">
+          <div id="graph-stage" class="graph-stage"><svg id="graph-edges" class="graph-edges" aria-hidden="true"></svg><div id="graph-nodes" class="graph-nodes"></div></div>
+          <p id="graph-empty" class="graph-empty" hidden>表示する作業はありません</p>
+        </div>
+        <div class="graph-footer"><span id="graph-project"></span><span id="graph-progress"></span></div>
+      </section>
       <section id="detail" class="detail" aria-labelledby="detail-title" tabindex="0">
+        <div class="panel-heading inspector-heading"><h2>INSPECTOR</h2><button id="inspector-close" type="button" aria-label="インスペクターを閉じる">CLOSE</button></div>
         <div id="empty" class="empty"><h2>表示する作業はありません</h2></div>
         <div id="session-content" hidden>
           <div class="detail-context"><span id="project"></span><span id="updated"></span></div>
@@ -51,10 +63,10 @@
           <div id="task-relations" class="task-relations" hidden></div>
           <div class="detail-meta"><span id="duration"></span><span id="progress"></span></div>
           <section id="agents-section" class="agents-section" aria-labelledby="agents-heading" hidden>
-            <div class="section-heading"><h3 id="agents-heading">担当エージェント</h3><span id="agent-summary" class="secondary"></span></div>
+            <div class="section-heading"><h3 id="agents-heading">AGENTS</h3><span id="agent-summary" class="secondary"></span></div>
             <div id="agents" class="agents"></div>
           </section>
-          <details id="activity" class="activity" hidden><summary>活動履歴</summary><ol id="events" class="events" aria-label="選択した作業の活動履歴"></ol></details>
+          <details id="activity" class="activity" hidden><summary>ACTIVITY</summary><ol id="events" class="events" aria-label="選択した作業の活動履歴"></ol></details>
         </div>
       </section>
     </main>
