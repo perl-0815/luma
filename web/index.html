@@ -10,38 +10,53 @@
   <script src="model.js" defer></script>
   <script src="app.js" defer></script>
 </head>
-<body data-status="idle">
+<body>
   <div class="frame">
     <header class="masthead">
-      <div class="brand"><img src="mark.svg" width="34" height="34" alt=""><h1>LUMA</h1></div>
-      <div class="window-tools">
-        <button id="pin" type="button" aria-label="最前面に固定" aria-pressed="false" title="最前面に固定">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 3 7 2-2 4 1 4-3-1-4 3-1-5 4-3Z"/><path d="m8 13-3 4"/></svg><span>固定</span>
-        </button>
-        <button id="compact" type="button" aria-label="小さく表示" aria-pressed="false" title="小さく表示">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M11 9h6m-6 0v7"/></svg><span id="compact-label">縮小</span>
-        </button>
+      <div class="toolbar">
+        <div class="brand"><img src="mark.svg" width="27" height="27" alt=""><h1>LUMA</h1></div>
+        <div class="window-tools">
+          <button id="pin" type="button" aria-label="最前面に固定" aria-pressed="false" title="最前面に固定">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 3 7 2-2 4 1 4-3-1-4 3-1-5 4-3Z"/><path d="m8 13-3 4"/></svg><span>固定</span>
+          </button>
+          <button id="compact" type="button" aria-label="小さく表示" aria-pressed="false" title="小さく表示">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M11 9h6m-6 0v7"/></svg><span id="compact-label">縮小</span>
+          </button>
+        </div>
+      </div>
+      <div id="global-indicator" class="global-indicator" data-color="green" role="status" aria-live="polite" aria-atomic="true">
+        <div class="global-primary"><span class="global-caption">全体</span><strong id="global-label">待機中</strong></div>
+        <span id="global-detail">作業の開始を待っています</span>
       </div>
     </header>
-    <main>
-      <p id="connection-error" class="connection-error" role="alert" hidden></p>
-      <section aria-label="作業一覧" class="work-section">
-        <div class="section-heading"><h2>作業</h2><span id="work-summary" class="secondary"></span></div>
-        <div id="sessions" class="sessions" role="group" aria-label="作業を選択"></div>
-        <p id="empty" class="empty" hidden>表示する作業はありません</p>
-        <details id="history" class="history" hidden>
-          <summary id="history-label">完了した作業</summary>
-          <div id="history-sessions" class="sessions" role="group" aria-label="完了した作業を選択"></div>
-        </details>
+    <div id="sessions" class="session-tabs" role="tablist" aria-label="作業"></div>
+    <p id="connection-error" class="connection-error" role="alert" hidden></p>
+    <main id="workspace" class="workspace" role="tabpanel" tabindex="0">
+      <aside id="explorer" class="explorer" aria-label="タスクエクスプローラー">
+        <div class="explorer-heading"><h2>タスク</h2><span id="task-count" class="secondary"></span></div>
+        <button id="explorer-toggle" class="explorer-toggle" type="button" aria-expanded="false" aria-controls="task-tree-container"><span>タスク</span><span id="compact-task-count"></span><span class="chevron" aria-hidden="true">⌄</span></button>
+        <div id="task-tree-container" class="task-tree-container">
+          <button id="overview" class="overview task-button" type="button" data-focus-key="overview" aria-pressed="true"><span class="branch-node" aria-hidden="true"></span><span class="task-name">作業全体</span></button>
+          <ul id="task-tree" class="task-tree" aria-label="工程と進捗"></ul>
+          <p id="no-tasks" class="no-tasks">タスク計画はまだ登録されていません</p>
+        </div>
+      </aside>
+      <section id="detail" class="detail" aria-labelledby="detail-title" tabindex="0">
+        <div id="empty" class="empty"><h2>表示する作業はありません</h2></div>
+        <div id="session-content" hidden>
+          <div class="detail-context"><span id="project"></span><span id="updated"></span></div>
+          <p id="session-name" class="session-name" hidden></p>
+          <div class="detail-heading"><h2 id="detail-title"></h2><span id="detail-state" class="status-label"></span></div>
+          <p id="report" class="report"></p>
+          <div id="task-relations" class="task-relations" hidden></div>
+          <div class="detail-meta"><span id="duration"></span><span id="progress"></span></div>
+          <section id="agents-section" class="agents-section" aria-labelledby="agents-heading" hidden>
+            <div class="section-heading"><h3 id="agents-heading">担当エージェント</h3><span id="agent-summary" class="secondary"></span></div>
+            <div id="agents" class="agents"></div>
+          </section>
+          <details id="activity" class="activity" hidden><summary>活動履歴</summary><ol id="events" class="events" aria-label="選択した作業の活動履歴"></ol></details>
+        </div>
       </section>
-      <section id="agents-section" class="agents-section" aria-labelledby="agents-heading" hidden>
-        <div class="section-heading"><h2 id="agents-heading">エージェント</h2><span id="agent-summary" class="secondary"></span></div>
-        <div id="agents" class="agents" tabindex="0" role="region" aria-label="担当エージェントの状況"></div>
-      </section>
-      <details id="activity" class="activity" hidden>
-        <summary>活動履歴</summary>
-        <ol id="events" class="events" tabindex="0" aria-label="選択した作業の活動履歴"></ol>
-      </details>
     </main>
     <p id="announcement" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></p>
   </div>

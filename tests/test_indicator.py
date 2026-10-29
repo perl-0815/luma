@@ -19,7 +19,7 @@ class IndicatorCLITests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.directory = Path(self.temporary.name)
         self.state = self.directory / "nested" / "state.json"
-        self.environment = dict(os.environ, LUMA_STATE_PATH=str(self.state), PYTHONDONTWRITEBYTECODE="1")
+        self.environment = dict(os.environ, LUMA_STATE_PATH=str(self.state), LUMA_CONFIG_PATH=str(self.directory / "disabled-notifications.json"), PYTHONDONTWRITEBYTECODE="1")
 
     def run_cli(self, *arguments, expected=0):
         result = subprocess.run([sys.executable, str(CLI), *arguments], env=self.environment, cwd=self.directory, capture_output=True, text=True, timeout=20)
@@ -203,6 +203,68 @@ class IndicatorCLITests(unittest.TestCase):
         for index in range(31):
             self.start(f"other-{index}")
         self.assertEqual(self.show("keep")["agents"][0]["status"], "running")
+
+    def test_task_plan_and_batched_milestone_updates(self):
+        tasks = [{"id": "inspect", "title": "調査", "status": "running"},
+                 {"id": "build", "title": "実装", "dependsOn": ["inspect"]},
+                 {"id": "test", "title": "検証", "parentId": "build", "dependsOn": ["build"]}]
+        self.run_cli("start", "--session", "build", "--title", "Task graph", "--tasks", json.dumps(tasks), "--no-open")
+        saved = self.show("build")["tasks"]
+        self.assertEqual([task["id"] for task in saved], ["inspect", "build", "test"])
+        self.assertEqual(saved[1]["status"], "pending")
+        self.run_cli("update", "--session", "build", "--status", "running", "--message", "実装しています", "--done-task", "inspect", "--task", "build")
+        self.assertEqual([task["status"] for task in self.show("build")["tasks"]], ["done", "running", "pending"])
+        before = self.state.read_bytes()
+        self.assertIn("unfinished tasks", self.update("done", expected=1).stderr)
+        self.assertEqual(self.state.read_bytes(), before)
+        self.run_cli("update", "--session", "build", "--status", "done", "--message", "完了", "--done-task", "build", "--done-task", "test")
+        self.assertEqual(self.show("build")["status"], "done")
+
+    def test_old_sessions_accept_tasks_without_a_schema_migration(self):
+        self.start()
+        state = self.show()
+        state["sessions"][0].pop("tasks", None)
+        self.state.write_text(json.dumps(state), encoding="utf-8")
+        self.run_cli("update", "--session", "build", "--status", "running", "--message", "計画を追加", "--tasks", '[{"id":"one","title":"実装"}]')
+        self.assertEqual(self.show("build")["tasks"][0]["status"], "pending")
+
+    def test_invalid_task_graphs_do_not_modify_state(self):
+        self.start()
+        cases = [
+            '[{"id":"a","title":"A","dependsOn":["missing"]}]',
+            '[{"id":"a","title":"A","parentId":"a"}]',
+            '[{"id":"a","title":"A","dependsOn":["b"]},{"id":"b","title":"B","dependsOn":["a"]}]',
+            '[{"id":"a","title":"A","parentId":"b"},{"id":"b","title":"B","parentId":"a"}]',
+            '[{"id":"a","title":"A","agentId":"missing"}]',
+            '[{"id":"a","title":"A","status":"idle"}]',
+            '[{"id":"a","title":"A","status":[]}]',
+            '[{"id":"a","title":"A","status":{}}]',
+            '[{"id":"a","title":null}]',
+            '[{"id":"a","title":"A","dependsOn":{}}]',
+        ]
+        for patch in cases:
+            with self.subTest(patch=patch):
+                before = self.state.read_bytes()
+                self.run_cli("update", "--session", "build", "--status", "running", "--message", "Invalid", "--tasks", patch, expected=1)
+                self.assertEqual(self.state.read_bytes(), before)
+        self.run_cli("update", "--session", "build", "--status", "running", "--message", "Invalid", "--task", "missing", expected=1)
+
+    def test_task_issue_and_skip_are_explicit(self):
+        self.start()
+        self.run_cli("update", "--session", "build", "--status", "running", "--message", "追加", "--tasks", '[{"id":"a","title":"確認"}]')
+        self.run_cli("update", "--session", "build", "--status", "running", "--message", "回答が必要", "--task", "a", "--task-status", "waiting")
+        task = self.show("build")["tasks"][0]
+        self.assertEqual(task["status"], "waiting")
+        self.assertEqual(task["message"], "回答が必要")
+        self.run_cli("update", "--session", "build", "--status", "done", "--message", "範囲から除外して完了", "--tasks", '[{"id":"a","status":"skipped"}]')
+        self.assertEqual(self.show("build")["tasks"][0]["status"], "skipped")
+
+    def test_pending_tasks_prevent_history_pruning(self):
+        self.start("keep")
+        self.run_cli("update", "--session", "keep", "--status", "idle", "--message", "Paused", "--tasks", '[{"id":"a","title":"残作業"}]')
+        for index in range(31):
+            self.start(f"with-task-{index}")
+        self.assertEqual(self.show("keep")["tasks"][0]["status"], "pending")
 
 
 if __name__ == "__main__":

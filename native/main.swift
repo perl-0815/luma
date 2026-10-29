@@ -1,7 +1,7 @@
 import AppKit
 import WebKit
 
-// A local-only display. It never executes commands received from the web view.
+// A local display. Notifications are handled by the CLI, outside the web view.
 final class WorkHub: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKScriptMessageHandler {
     private var window: NSWindow!
     private var webView: WKWebView!
@@ -9,7 +9,7 @@ final class WorkHub: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKSc
     private var previousData: Data?
     private var lastError: String?
     private var compact = false
-    private var expandedSize = NSSize(width: 560, height: 610)
+    private var expandedSize = NSSize(width: 900, height: 640)
     private var requestedStateURL: URL?
     private let webRoot = Bundle.main.resourceURL!.appendingPathComponent("web")
     private var stateURL: URL {
