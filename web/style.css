@@ -38,7 +38,11 @@ h1 { font-size: 15px; font-weight: 650; letter-spacing: .23em; }
 .global-caption { font: 11px/1.3 var(--mono); letter-spacing: .1em; }
 #global-label { font-size: 26px; font-weight: 750; letter-spacing: .035em; line-height: 1.25; }
 #global-detail { font-size: 12px; text-align: right; overflow-wrap: anywhere; max-width: 47%; }
-.session-tabs { display: flex; flex-shrink: 0; overflow-x: auto; min-height: 40px; background: #15191a; border-block: 1px solid var(--line); scrollbar-width: thin; }
+.session-bar { display: flex; flex-shrink: 0; min-width: 0; background: #15191a; border-block: 1px solid var(--line); }
+.session-tabs { display: flex; flex: 1; min-width: 0; overflow-x: auto; min-height: 40px; scrollbar-width: thin; }
+.history-toggle { flex-shrink: 0; padding: 8px 12px; border: 0; border-left: 1px solid var(--line); background: var(--panel-deep); color: var(--secondary); font-size: 11px; white-space: nowrap; }
+.history-toggle:hover { color: var(--text); background: #252b2b; }
+.history-toggle[aria-pressed=true] { color: var(--accent); background: #d8ce8310; }
 .session-tab { position: relative; flex: 0 0 auto; display: flex; gap: 8px; align-items: center; max-width: 220px; min-width: 112px; padding: 10px 15px; color: var(--secondary); background: transparent; border: 0; border-right: 1px solid var(--line); text-align: left; font-size: 12px; }
 .session-tab:hover { color: var(--text); background: #252b2b; }
 .session-tab[aria-selected=true] { color: var(--text); background: var(--panel); }

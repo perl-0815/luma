@@ -1,12 +1,16 @@
 (() => {
   'use strict';
-  const { STATES, TASK_STATES, valid, taskStatus, validPayload, overall, globalStatus, focusMessage, elapsed, orderSessions, ageLabel } = window.LumaModel;
+  const { STATES, TASK_STATES, valid, taskStatus, validPayload, overall, globalStatus, focusMessage, elapsed, groupSessions, ageLabel } = window.LumaModel;
   const $ = id => document.getElementById(id);
-  let state = { sessions: [] }, selected = null, readError = false;
+  let state = { sessions: [] }, selected = null, readError = false, showCompleted = false;
   const selectedTasks = new Map();
   let graphLayout = null;
   let graphWidth = 0;
   const current = () => state.sessions.find(session => session.id === selected);
+  const shownSessions = () => {
+    const { visible, history } = groupSessions(state.sessions);
+    return showCompleted ? [...visible, ...history] : visible;
+  };
   const text = (id, value) => { $(id).textContent = value; };
   const element = (tag, className, content) => {
     const node = document.createElement(tag);
@@ -23,14 +27,7 @@
   }
 
   function selectSession(id, focus = false) {
-    selected = id;
-    $('detail').scrollTop = 0;
-    $('workspace').scrollTop = 0;
-    $('graph-viewport').scrollTop = 0;
-    $('graph-viewport').scrollLeft = 0;
-    $('workspace').classList.remove('outline-open', 'inspector-open');
-    render();
-    resetGraphView(selectedTasks.get(selected));
+    render(id);
     if (focus) {
       const tab = selectedTab();
       tab?.focus({ preventScroll: true });
@@ -63,13 +60,13 @@
     if (['error', 'waiting'].includes(status)) button.append(element('span', 'tab-status', STATES[status].label));
     button.addEventListener('click', () => selectSession(session.id, true));
     button.addEventListener('keydown', event => {
-      const index = state.sessions.findIndex(item => item.id === session.id), count = state.sessions.length;
+      const sessions = shownSessions(), index = sessions.findIndex(item => item.id === session.id), count = sessions.length;
       let next;
       if (event.key === 'ArrowRight') next = (index + 1) % count;
       if (event.key === 'ArrowLeft') next = (index + count - 1) % count;
       if (event.key === 'Home') next = 0;
       if (event.key === 'End') next = count - 1;
-      if (next !== undefined) { event.preventDefault(); selectSession(state.sessions[next].id, true); }
+      if (next !== undefined) { event.preventDefault(); selectSession(sessions[next].id, true); }
     });
     return button;
   }
@@ -218,13 +215,28 @@
     viewport.scrollTop = top; viewport.scrollLeft = left;
     if (focused?.startsWith('node:')) [...$('graph-nodes').children].find(node => node.dataset.focusKey === focused)?.focus({ preventScroll: true });
   }
-  function render() {
-    const focused = focusKey(document.activeElement);
+  function render(preferredSelection = selected) {
+    const activeElement = document.activeElement, focused = focusKey(activeElement);
+    const sessions = shownSessions(), previousSelection = selected;
+    selected = sessions.some(session => session.id === preferredSelection) ? preferredSelection : sessions[0]?.id || null;
+    const selectionChanged = selected !== previousSelection;
+    const moveFocus = selectionChanged && ($('sessions').contains(activeElement) || $('workspace').contains(activeElement));
+    if (selectionChanged) {
+      $('detail').scrollTop = 0; $('workspace').scrollTop = 0;
+      $('graph-viewport').scrollTop = 0; $('graph-viewport').scrollLeft = 0;
+      $('workspace').classList.remove('outline-open', 'inspector-open');
+    }
     const scroll = ['sessions', 'explorer', 'detail', 'task-tree-container', 'graph-viewport'].map(id => [id, $(id).scrollTop, $(id).scrollLeft]);
     const global = globalStatus(state.sessions, readError);
     $('global-indicator').dataset.color = global.color;
     text('global-label', global.label); text('global-detail', global.detail);
-    $('sessions').replaceChildren(...state.sessions.map(tab));
+    $('sessions').replaceChildren(...sessions.map(tab));
+    const completedCount = groupSessions(state.sessions).history.length;
+    $('history-toggle').hidden = !completedCount;
+    $('history-toggle').setAttribute('aria-pressed', String(showCompleted));
+    text('history-toggle', `完了履歴 (${completedCount})`);
+    const emptyMessage = completedCount ? '進行中の作業はありません。完了した作業は「完了履歴」から確認できます。' : '表示する作業はありません';
+    text('graph-empty', emptyMessage); text('empty-message', emptyMessage);
     const session = current(), tasks = session?.tasks || [], task = taskFor(session), agents = session?.agents || [];
     $('workspace').setAttribute('aria-labelledby', session ? `session-${session.id}` : 'global-label');
     $('empty').hidden = !!session; $('session-content').hidden = !session; $('explorer').hidden = !session;
@@ -262,10 +274,19 @@
     }
     renderGraph(session); syncPanels();
     for (const [id, top, left] of scroll) { $(id).scrollTop = top; $(id).scrollLeft = left; }
-    if (focused) [...document.querySelectorAll('[data-focus-key]')].find(item => item.dataset.focusKey === focused)?.focus({ preventScroll: true });
-    const announcement = session ? `${session.title}、${STATES[overall(session)].label}${task ? `。${task.title}、${TASK_STATES[task.status].label}` : ''}` : '';
+    if (selectionChanged) {
+      selectedTab()?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      resetGraphView(selectedTasks.get(selected));
+    }
+    if (moveFocus || (activeElement === $('history-toggle') && !completedCount)) {
+      (selectedTab() || (!$('history-toggle').hidden && $('history-toggle')) || $('graph-viewport')).focus({ preventScroll: true });
+    } else if (focused && !selectionChanged) {
+      [...document.querySelectorAll('[data-focus-key]')].find(item => item.dataset.focusKey === focused)?.focus({ preventScroll: true });
+    }
+    const announcement = session ? `${session.title}、${STATES[overall(session)].label}${task ? `。${task.title}、${TASK_STATES[task.status].label}` : ''}` : emptyMessage;
     if ($('announcement').textContent !== announcement) text('announcement', announcement); updateClock();
   }
+  $('history-toggle').addEventListener('click', () => { showCompleted = !showCompleted; render(); });
   function updateClock() {
     const session = current(); if (!session) return;
     const task = taskFor(session); text('updated', ageLabel(task?.updatedAt || session.updatedAt));
@@ -297,19 +318,14 @@
   window.luma = {
     receive(payload) {
       if (!validPayload(payload)) { this.connectionError('状態ファイルの形式を確認してください'); return; }
-      const previousSelection = selected, previous = current(), previousIDs = new Set(state.sessions.map(session => session.id));
+      const previous = current(), previousIDs = new Set(state.sessions.map(session => session.id));
       state = payload;
-      if (!state.sessions.some(session => session.id === selected)) selected = orderSessions(state.sessions)[0]?.id || null;
-      else {
-        const newest = state.sessions[state.sessions.length - 1];
-        if (newest && !previousIDs.has(newest.id) && (!previous || overall(previous) === 'done')) selected = newest.id;
-      }
+      let nextSelection = selected;
+      const newest = state.sessions[state.sessions.length - 1];
+      if (previous && state.sessions.some(session => session.id === selected) && newest &&
+        !previousIDs.has(newest.id) && overall(previous) === 'done') nextSelection = newest.id;
       for (const [id, taskID] of selectedTasks) if (!state.sessions.find(session => session.id === id)?.tasks?.some(task => task.id === taskID)) selectedTasks.delete(id);
-      readError = false; $('connection-error').hidden = true; render();
-      if (selected !== previousSelection) {
-        selectedTab()?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-        resetGraphView(selectedTasks.get(selected));
-      }
+      readError = false; $('connection-error').hidden = true; render(nextSelection);
     },
     connectionError(message) { readError = true; text('connection-error', message); $('connection-error').hidden = false; render(); },
     preferences(prefs) {

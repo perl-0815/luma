@@ -30,7 +30,10 @@
         <span id="global-detail">作業の開始を待っています</span>
       </div>
     </header>
-    <div id="sessions" class="session-tabs" role="tablist" aria-label="作業"></div>
+    <div class="session-bar">
+      <div id="sessions" class="session-tabs" role="tablist" aria-label="作業"></div>
+      <button id="history-toggle" class="history-toggle" type="button" aria-pressed="false" aria-controls="sessions" hidden>完了履歴 (0)</button>
+    </div>
     <p id="connection-error" class="connection-error" role="alert" hidden></p>
     <main id="workspace" class="workspace" role="tabpanel">
       <aside id="explorer" class="explorer" aria-label="タスクエクスプローラー">
@@ -54,7 +57,7 @@
       </section>
       <section id="detail" class="detail" aria-labelledby="detail-title" tabindex="0">
         <div class="panel-heading inspector-heading"><h2>INSPECTOR</h2><button id="inspector-close" type="button" aria-label="インスペクターを閉じる">CLOSE</button></div>
-        <div id="empty" class="empty"><h2>表示する作業はありません</h2></div>
+        <div id="empty" class="empty"><h2 id="empty-message">表示する作業はありません</h2></div>
         <div id="session-content" hidden>
           <div class="detail-context"><span id="project"></span><span id="updated"></span></div>
           <p id="session-name" class="session-name" hidden></p>

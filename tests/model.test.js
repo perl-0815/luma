@@ -34,14 +34,23 @@ test('hub puts errors and user input before newer running work, including agent 
   assert.deepEqual(orderSessions(sessions).map(s => s.id), ['agent-error', 'wait', 'run']);
   assert.equal(sessions[0].id, 'run');
 });
-test('completed work moves to history while a result remains visible when everything is done', () => {
+test('completed work only appears in history, including when everything is done', () => {
   const done = [session('old', 'done', '2026-10-16T10:00:00Z'), session('latest', 'done', '2026-10-16T12:00:00Z')];
-  assert.deepEqual(groupSessions(done).visible.map(s => s.id), ['latest']);
-  assert.deepEqual(groupSessions(done).history.map(s => s.id), ['old']);
+  assert.deepEqual(groupSessions(done).visible, []);
+  assert.deepEqual(groupSessions(done).history.map(s => s.id), ['latest', 'old']);
   const mixed = groupSessions([...done, session('work', 'running', '2026-10-16T11:00:00Z')]);
   assert.deepEqual(mixed.visible.map(s => s.id), ['work']);
   assert.equal(mixed.history.length, 2);
   assert.deepEqual(groupSessions([]), { visible: [], history: [] });
+});
+test('history never hides unfinished or blocked work even when the main status is done', () => {
+  const sessions = [session('done', 'done', '2026-10-16T12:00:00Z'),
+    session('agent', 'done', '2026-10-16T11:00:00Z', [{ status: 'waiting' }]),
+    { ...session('task', 'done', '2026-10-16T10:00:00Z'), tasks: [{ status: 'error' }] },
+    { ...session('pending', 'done', '2026-10-16T09:00:00Z'), tasks: [{ status: 'pending' }] },
+    session('idle', 'idle', '2026-10-16T08:00:00Z')];
+  assert.deepEqual(groupSessions(sessions).visible.map(s => s.id), ['task', 'agent', 'pending', 'idle']);
+  assert.deepEqual(groupSessions(sessions).history.map(s => s.id), ['done']);
 });
 test('freshness labels show days and never imply a future update', () => {
   const now = Date.parse('2026-10-16T12:00:00Z');

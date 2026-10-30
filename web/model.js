@@ -98,7 +98,7 @@
   function groupSessions(sessions) {
     const ordered = orderSessions(sessions);
     const active = ordered.filter(s => overall(s) !== 'done'), completed = ordered.filter(s => overall(s) === 'done');
-    return active.length ? { visible: active, history: completed } : { visible: completed.slice(0, 1), history: completed.slice(1) };
+    return { visible: active, history: completed };
   }
   function ageLabel(at, now = Date.now()) {
     const seconds = Math.max(0, Math.floor((now - Date.parse(at)) / 1000));
